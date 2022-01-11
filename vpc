@@ -1,0 +1,113 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: IBM VPC with public and private templates 
+Resources:
+  IBMVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+       - Key: Name
+         Value: IBM-VPC
+  IBMIGW:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: IBM-IGW
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+         Ref: IBMVPC
+      InternetGatewayId:
+         Ref: IBMIGW
+  IBMPUBSN:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: IBMVPC
+      MapPublicIpOnLaunch: "true"
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: "eu-west-1a"
+      Tags:
+      - Key: Name
+        Value: IBM-PUB-SN
+  IBMPVTSN:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: IBMVPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: "eu-west-1a"
+      Tags:
+      - Key: Name
+        Value: IBM-PVT-SN
+  IBMPUBRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: IBMVPC
+      Tags:
+      - Key: Name
+        Value: IBM-PUB-RT
+
+  IBMIGWRoute:
+    Type: AWS::EC2::Route
+    Properties:
+       RouteTableId:
+         Ref: IBMPUBRT
+       DestinationCidrBlock: 0.0.0.0/0
+       GatewayId:
+         Ref: IBMIGW
+  IBMPUBSNRTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: IBMPUBSN
+      RouteTableId:
+        Ref: IBMPUBRT
+  IBMPVTRT:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:  
+        Ref: IBMVPC
+      Tags:
+      - Key: Name
+        Value: IBM-PVT-RT
+  IBMPVTSNRTAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: IBMPVTSN
+      RouteTableId:
+        Ref: IBMPVTRT
+  IBMSSHSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+        GroupDescription: Allow SSH to client host
+        VpcId:
+           Ref: IBMVPC
+        SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+        SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+  IBMserver: 
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-01efa4023f0f3a042
+      InstanceType: t2.micro
+      KeyName: ireland
+      SubnetId: 
+        Ref: IBMPUBSN
+      SecurityGroupIds:
+            - !GetAtt "IBMSSHSG.GroupId"
+
